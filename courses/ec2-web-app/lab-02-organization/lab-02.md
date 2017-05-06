@@ -1,0 +1,22 @@
+# EC2 Web Application - Lab 02 - Organisations
+
+## Goal
+
+
+## Prereqs
+* Master account is in place and locked down
+
+## Completed State
+* Dev organisation and account is in place
+* Organisation policy defined
+* IAM user setup to access new account
+
+# Lab 02 - 
+
+
+# References
+
+
+# Possible Enhancements
+* Now with organisations in place, the purpose of the master account can be limited to managing the organisation under it and billing. Nothing else. The benefit of doing this is you can reduce the need to access the root account.
+* So instead of creating more groups/users in the master account for accessing sub-accounts, create another sub-account for that purpose.

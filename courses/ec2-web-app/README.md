@@ -25,3 +25,6 @@ Building a VPC, subnets, security groups and some ec2 instances a relatively eas
   * ConfigRules
 * This course was developed on Ohio (us-east-2)
 
+## Contributors
+* David Chatterton
+

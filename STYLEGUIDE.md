@@ -15,12 +15,14 @@ There is no right or wrong naming convention, the important this is to have one 
 * Use dash "-" as the separator in resource names
 * Use only lower case letters
   * Camel case does not work for S3 buckets which must be lower case 
+
 * Prefix the resource name with what it is, for example
   * ec2 - ec2 instance
   * sg - security group
   * sn - subnet
   * rt - route table
   * vpc - VPC
+  * trail - CloudTrail trail
 
 ## File structure
 * Each course is contained in a directory

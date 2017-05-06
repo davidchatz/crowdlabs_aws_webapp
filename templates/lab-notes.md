@@ -11,7 +11,9 @@
 
 # Lab 02 - <lab name> 
 
-## 02.XX - <step name>
+## <step name>
 
-# Options/Alternatives
+# References
+
+# Possible Enhancements
 * describe further steps or alternatives that could be considered
