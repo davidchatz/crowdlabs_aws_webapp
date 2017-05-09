@@ -1,0 +1,173 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: Stack for creating group and user to switch roles into a subaccount. Add MFA to new user once stack build is complete.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: CrowdLabs EC2 Web Application Subaccount Switch Roles
+        Parameters:
+          - accountId
+          - groupName
+          - userName
+          - userPassword
+    ParameterLabels:
+      accountId:
+        default: Sub-account ID
+      groupName:
+        default: Group Name
+      userName:
+        default: User Name
+      userPassword:
+        default: User Password
+
+Parameters:
+  accountId:
+    Type: String 
+    MinLength: 12
+    MaxLength: 12
+    AllowedPattern: ^[0-9]*$
+    ConstraintDescription: 12 digits
+  groupName:
+    Type: String
+    MinLength: 3
+    MaxLength: 64
+    AllowedPattern: ^[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9]$
+    ConstraintDescription: 3 to 64 upper case, lower case or dashes, must not start or end with a dash
+  userName:
+    Type: String
+    MinLength: 3
+    MaxLength: 64
+    AllowedPattern: ^[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9]$
+    ConstraintDescription: 3 to 64 upper case, lower case or dashes, must not start or end with a dash
+  userPassword:
+    Description: Must conform to password policy
+    Type: String
+    MinLength: 8
+    MaxLength: 32
+    NoEcho: true
+    ConstraintDescription: Password must be at least 8 characters
+
+Resources:
+  groupAccount:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Ref groupName
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AWSCloudFormationReadOnlyAccess
+      Policies:
+      # Assume Role to switch to subaccount
+      - PolicyName: !Join ["", [!Ref groupName, "-policy"]]
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - sts:AssumeRole
+            Condition:
+              Bool:
+                aws:MultiFactorAuthPresent: "true"
+            Resource: !Join [ "", ["arn:aws:iam::", !Ref accountId, ":role/OrganizationAccountAccessRole"]]
+
+  userAccount:
+    Type: AWS::IAM::User
+    Properties:
+      Groups:
+      - !Ref groupAccount
+      LoginProfile: 
+        Password: !Ref userPassword
+        PasswordResetRequired: false
+      UserName: !Ref userName
+
+  # Allow users to manage their logins
+  userIAMPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Join [ "", [!Ref userName, "-policy-user-iam-access"]]
+      Users:
+      - !Ref userName
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Sid: AllowAllUsersToListAccounts
+            Effect: Allow
+            Action:
+            - iam:ListAccountAliases
+            - iam:ListUsers
+            - iam:GetAccountSummary
+            Resource: "*"
+          - 
+            Sid: AllowIndividualUserToSeeAndManageTheirOwnAccountInformation
+            Effect: Allow
+            Action:
+            - iam:ChangePassword
+            - iam:CreateAccessKey
+            - iam:CreateLoginProfile
+            - iam:DeleteAccessKey
+            - iam:DeleteLoginProfile
+            - iam:GetAccountPasswordPolicy
+            - iam:GetLoginProfile
+            - iam:ListAccessKeys
+            - iam:UpdateAccessKey
+            - iam:UpdateLoginProfile
+            - iam:ListSigningCertificates
+            - iam:DeleteSigningCertificate
+            - iam:UpdateSigningCertificate
+            - iam:UploadSigningCertificate
+            - iam:ListSSHPublicKeys
+            - iam:GetSSHPublicKey
+            - iam:DeleteSSHPublicKey
+            - iam:UpdateSSHPublicKey
+            - iam:UploadSSHPublicKey
+            Resource: 
+            - !GetAtt userAccount.Arn
+          -
+            Sid: AllowIndividualUserToListTheirOwnMFA
+            Effect: Allow
+            Action:
+            - iam:ListVirtualMFADevices
+            - iam:ListMFADevices
+            Resource:
+            - !Join ["", ["arn:aws:iam::", !Ref "AWS::AccountId", ":mfa/*"]]
+            - !GetAtt userAccount.Arn
+          -
+            Sid: AllowIndividualUserToManageTheirOwnMFA
+            Effect: Allow
+            Action:
+            - iam:CreateVirtualMFADevice
+            - iam:DeactivateMFADevice
+            - iam:DeleteVirtualMFADevice
+            - iam:RequestSmsMfaRegistration
+            - iam:FinalizeSmsMfaRegistration
+            - iam:EnableMFADevice
+            - iam:ResyncMFADevice
+            Resource:
+            - !Join ["", ["arn:aws:iam::", !Ref "AWS::AccountId", ":mfa/", !Ref userName]]
+            - !GetAtt userAccount.Arn
+          -
+            Sid: BlockAnyAccessOtherThanAboveUnlessSignedInWithMFA
+            Effect: Deny
+            NotAction: "iam:*"
+            Resource: "*"
+            Condition:
+              BoolIfExists:
+                aws:MultiFactorAuthPresent: false
+
+Outputs:
+  groupArn:
+    Description: Group ARN
+    Value: !GetAtt groupAccount.Arn
+  userArn:
+    Description: User ARN
+    Value: !GetAtt userAccount.Arn
+  switchRoleURL:
+    Description: URL to switch role to access sub-account
+    Value: !Join [ "", ["https://signin.aws.amazon.com/switchrole?account=", 
+                        !Ref accountId,
+                        "&roleName=OrganizationAccountAccessRole&displayName=",
+                        !Ref userName,
+                        "@",
+                        !Ref accountId]]
