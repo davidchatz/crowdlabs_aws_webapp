@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: Base stack for defining some global parameters and creating a bucket for other cloudformation templates for the master account
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: CrowdLabs EC2 Web Application Base Stack
+        Parameters:
+          - globalPrefix
+    ParameterLabels:
+      globalPrefix:
+        default: Global naming prefix
+
+Parameters:
+  globalPrefix:
+    Type: String
+    MinLength: 3
+    MaxLength: 8
+    AllowedPattern: ^[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9]$
+    ConstraintDescription: 3 to 9 upper case, lower case or dashes, must not start or end with a dash
+    Default: cle2wa
+
+Resources:
+  s3CfTemplateBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Join ["", [!Ref globalPrefix, "-s3-master-cf-templates"]]
+      VersioningConfiguration:
+        Status: Enabled 
+      AccessControl: Private
+      Tags:
+        - Key: Env
+          Value: master
+
+Outputs:
+  cle2waPrefix:
+    Description: Global prefix
+    Value: !Ref globalPrefix
+    Export:
+      Name: cle2wa-prefix
+  cle2waS3MasterCfTemplate:
+    Description: Bucket for CloudFomration templates in master account
+    Value: !Ref s3CfTemplateBucket
+    Export:
+      Name: cle2wa-s3-master-cf-templates
+  cle2waPolicyUserIamAccess:
+    Description: Policy allowing users to manage their logins, forces MFA to do anything else
+    Value: !Ref usersIAMPolicy
+    Export:
+      Name: cle2wa-policy-user-iam-access
+  cle2waPolicyUserIamAccessArn:
+    Description: Policy ARN allowing users to manage their logins, forces MFA to do anything else
+    Value: !GetAtt usersIAMPolicy.Arn
+    Export:
+      Name: cle2wa-policy-user-iam-access-arn
