@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: Stack for creating group and user to switch roles into a subaccount. Add MFA to new user once stack build is complete.
+
+Parameters:
+  accountId:
+    Type: String 
+    MinLength: 12
+    MaxLength: 12
+    AllowedPattern: ^[0-9]*$
+    ConstraintDescription: 12 digits
+  groupName:
+    Type: String
+    MinLength: 3
+    MaxLength: 64
+    AllowedPattern: ^[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9]$
+    ConstraintDescription: 3 to 64 upper case, lower case or dashes, must not start or end with a dash
+
+Resources:
+  groupAccount:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Ref groupName
+      Policies:
+      # Assume Role to switch to subaccount
+      - PolicyName: !Join ["", [!Ref groupName, "-policy"]]
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - sts:AssumeRole
+            Condition:
+              Bool:
+                aws:MultiFactorAuthPresent: "true"
+            Resource: !Join [ "", ["arn:aws:iam::", !Ref accountId, ":role/OrganizationAccountAccessRole"]]
+
+Outputs:
+  groupArn:
+    Description: Group ARN
+    Value: !GetAtt groupAccount.Arn
