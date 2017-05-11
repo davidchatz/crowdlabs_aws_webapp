@@ -26,6 +26,7 @@ had to do this again and again.
 policies are required in the master account.
   * If this has already been down in [lab-020](../lab-020-organization) you can build this using different names so you can compare, and then remove
   the IAM resources you created by hand in that lab.
+* Assumes you have some CloudFormation experience. If not I suggest you do the [Advanced AWS CloudFormation](https://acloud.guru/course/aws-advanced-cloudformation/dashboard) course on [acloud.guru](https://acloud.guru).
 
 ## Completed State
 * IAM user setup im master account and can assume role in new account
@@ -261,8 +262,25 @@ The documentation from Amazon specifies this as a JSON policy document, so here 
             - iam:DeleteSSHPublicKey
             - iam:UpdateSSHPublicKey
             - iam:UploadSSHPublicKey
+            - iam:ListUserPolicies
+            - iam:ListAttachedUserPolicies
+            - iam:ListGroupsForUser
             Resource: 
             - !GetAtt userAccount.Arn
+          -
+            Sid: AllowIndividualUserToListTheirGroups
+            Effect: Allow
+            Action:
+            - iam:ListGroups
+            Resource:
+            - !Join ["", ["arn:aws:iam::", !Ref "AWS::AccountId", ":group/*"]]
+          -
+            Sid: AllowIndividualUserToSeeTheirGroupPolicies
+            Effect: Allow
+            Action:
+            - iam:ListGroupPolicies
+            - iam:ListAttachedGroupPolicies
+            Resource: !GetAtt groupAccount.Arn
           -
             Sid: AllowIndividualUserToListTheirOwnMFA
             Effect: Allow
@@ -296,12 +314,28 @@ The documentation from Amazon specifies this as a JSON policy document, so here 
                 aws:MultiFactorAuthPresent: false
 ```
 
-The complete CloudFormation document can be found [here](scripts/cf-subaccount-access-4.yaml) to review.
+*Note*: At the time of writing, the AWS doc did not include the following actions which you may also grant a user:
+- iam:ListUserPolicies
+- iam:ListAttachedUserPolicies
+- iam:ListGroupsForUser
+
+and for all groups in the account:
+- iam:ListGroups
+
+and for the specific group created here:
+- iam:ListGroupPolicies
+- iam:ListAttachedGroupPolicies
+
+I have added these actions to the policy. The complete CloudFormation document can be found [here](scripts/cf-subaccount-access-4.yaml) to review.
 
 Update your stack once again with these changes and you should now be able to login as the new user, create an MFA, click the generated URL to switch roles and access the new account.
 
 
 # References
+
+[CloudFomration Best Practices](https://www.slideshare.net/AmazonWebServices/aws-cloudformation-best-practices)
+
+[Advanced AWS CloudFormation Course](https://acloud.guru/course/aws-advanced-cloudformation/dashboard) 
 
 [Organization Cross-Account Access](http://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_access.html#orgs_manage_accounts_access-cross-account-role)
 
@@ -316,4 +350,6 @@ Update your stack once again with these changes and you should now be able to lo
 [Users self-manage login](http://docs.aws.amazon.com/IAM/latest/UserGuide/tutorial_users-self-manage-mfa-and-creds.html)
 
 # Possible Enhancements
+* Create the subaccount using cloudformation
 * Instead of prompting for the user password here, force the password to be reset on first login
+* Email the account details to the user so they don't need to have cloudformation read access in the master account

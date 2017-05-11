@@ -128,8 +128,25 @@ Resources:
             - iam:DeleteSSHPublicKey
             - iam:UpdateSSHPublicKey
             - iam:UploadSSHPublicKey
+            - iam:ListUserPolicies
+            - iam:ListAttachedUserPolicies
+            - iam:ListGroupsForUser
             Resource: 
             - !GetAtt userAccount.Arn
+          -
+            Sid: AllowIndividualUserToListTheirGroups
+            Effect: Allow
+            Action:
+            - iam:ListGroups
+            Resource:
+            - !Join ["", ["arn:aws:iam::", !Ref "AWS::AccountId", ":group/*"]]
+          -
+            Sid: AllowIndividualUserToSeeTheirGroupPolicies
+            Effect: Allow
+            Action:
+            - iam:ListGroupPolicies
+            - iam:ListAttachedGroupPolicies
+            Resource: !GetAtt groupAccount.Arn
           -
             Sid: AllowIndividualUserToListTheirOwnMFA
             Effect: Allow
