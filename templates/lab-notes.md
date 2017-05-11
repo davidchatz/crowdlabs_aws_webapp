@@ -1,4 +1,4 @@
-# <course name> - Lab XX - <lab name>
+# <course name> - Lab XXX - <lab name>
 
 ## Goal
 * describe whe should be learnt from doing this lab
@@ -9,7 +9,7 @@
 ## Completed State
 * list the state of the environment after the lab
 
-# Lab 02 - <lab name> 
+# Lab XXX - <lab name> 
 
 ## <step name>
 
