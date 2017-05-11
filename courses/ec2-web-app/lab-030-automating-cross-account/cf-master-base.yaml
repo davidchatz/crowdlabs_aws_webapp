@@ -47,13 +47,4 @@ Outputs:
     Value: !Ref s3CfTemplateBucket
     Export:
       Name: cle2wa-s3-master-cf-templates
-  cle2waPolicyUserIamAccess:
-    Description: Policy allowing users to manage their logins, forces MFA to do anything else
-    Value: !Ref usersIAMPolicy
-    Export:
-      Name: cle2wa-policy-user-iam-access
-  cle2waPolicyUserIamAccessArn:
-    Description: Policy ARN allowing users to manage their logins, forces MFA to do anything else
-    Value: !GetAtt usersIAMPolicy.Arn
-    Export:
-      Name: cle2wa-policy-user-iam-access-arn
+

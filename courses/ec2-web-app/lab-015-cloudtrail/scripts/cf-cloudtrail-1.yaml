@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Resources: 
+  s3TrailMasterBucket: 
+    DeletionPolicy: Retain
+    Type: "AWS::S3::Bucket"
+    Properties:
+      # Hardcoding the bucket name so this works for any account
+      BucketName: cle2wa-s3-trail-master
+      # TBC: should we enable versioning for this?
+      VersioningConfiguration:
+        Status: Enabled
+  s3PolicyTrailMasterBucket: 
+    Type: "AWS::S3::BucketPolicy"
+    Properties: 
+      Bucket: !Ref s3TrailMasterBucket
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Sid: "AWSCloudTrailAclCheck"
+            Effect: "Allow"
+            Principal: 
+              Service: "cloudtrail.amazonaws.com"
+            Action: "s3:GetBucketAcl"
+            Resource:
+            - !Join ["", ["arn:aws:s3:::", !Ref s3TrailMasterBucket]]
+          - 
+            Sid: "AWSCloudTrailWrite"
+            Effect: "Allow"
+            Principal: 
+              Service: "cloudtrail.amazonaws.com"
+            Action: "s3:PutObject"
+            # For a single account this would normally specify the account in the path
+            # but since this will be for multiple accounts
+            Resource:
+            - !Join ["", ["arn:aws:s3:::", !Ref s3TrailMasterBucket, "/AWSLogs/*"]]
+            Condition: 
+              StringEquals:
+                s3:x-amz-acl: "bucket-owner-full-control"
+  trailMaster: 
+    DependsOn: 
+      - s3PolicyTrailMasterBucket
+    Type: "AWS::CloudTrail::Trail"
+    Properties: 
+      # TBD: How to specify the name of the trail
+      S3BucketName: !Ref s3TrailMasterBucket
+      IncludeGlobalServiceEvents: true
+      IsLogging: true
+      IsMultiRegionTrail: true
+      EnableLogFileValidation: true
+
+Outputs:
+  trailMasterName:
+    Description: CloudTrail Bucket
+    Value: !Ref s3TrailMasterBucket
