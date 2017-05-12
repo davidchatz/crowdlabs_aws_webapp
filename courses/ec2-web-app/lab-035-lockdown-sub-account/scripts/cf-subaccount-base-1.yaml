@@ -1,11 +1,20 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
+Parameters:
+  trailBucketName:
+    Type: String
+    MinLength: 3
+    MaxLength: 64
+    Default: cle2wa-s3-trail-master
+    AllowedPattern: ^[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9]$
+    ConstraintDescription: 3 to 64 upper case, lower case or dashes, must not start or end with a dash
+    
 Resources: 
   trailMaster: 
     Type: "AWS::CloudTrail::Trail"
     Properties: 
-      # TBD: How to specify the name of the trail
-      S3BucketName: cle2wa-s3-trail-master
+      # TBD: How to specify the name of the trail?
+      S3BucketName: !Ref trailBucketName
       IncludeGlobalServiceEvents: true
       IsLogging: true
       IsMultiRegionTrail: true

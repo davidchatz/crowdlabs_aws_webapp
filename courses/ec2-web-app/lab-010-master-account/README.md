@@ -103,28 +103,6 @@ The default password policy defined in new accounts is not very strong and shoul
   * password expiry to 90 days, and
   * number of passwords to remember to 12 
 
-### CLI for password policy
-
-```bash
-$ aws iam update-account-password-policy --minimum-password-length 12 --require-symbols --require-numbers --require-uppercase-characters --require-lowercase-characters --max-password-age 90 --allow-users-to-change-password --password-reuse-prevention 12 --no-hard-expiry
-
-$ aws iam get-account-password-policy
-{
-    "PasswordPolicy": {
-        "AllowUsersToChangePassword": true,
-        "RequireLowercaseCharacters": true,
-        "RequireUppercaseCharacters": true,
-        "MinimumPasswordLength": 12,
-        "RequireNumbers": true,
-        "PasswordReusePrevention": 12,
-        "HardExpiry": false,
-        "RequireSymbols": true,
-        "MaxPasswordAge": 90,
-        "ExpirePasswords": true
-    }
-}
-```
-
 ## Disable other regions
 
 The master account should ideally be used for managing organizations and billing and nothing else. Therefore no other regions are required and they should be disabled.
