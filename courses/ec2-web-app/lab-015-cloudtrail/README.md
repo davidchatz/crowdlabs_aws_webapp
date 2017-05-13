@@ -1,121 +1,148 @@
 # EC2 Web Application - Lab 015 - CloudTrail
 
-**Incomplete - This is still in development and can be ignored as cloudtrail is configured using the wizard in lab-010**
-
 ## Goal
 
 As early as possible configure CloudTrail to track all API activity in this (and future) accounts.
 
-This lab goes beyond the default to all generate a audit user and group that has access to the CloudTrail logs using a KMS managed key. The benefit of this approach is in order to access the logs the user must have both CloudTrail permissions *and* access to this KMS key. Any other user with CloudTrail access will not be able to decrypt and read these logs.
-
-The CloudTrail configuration from [lab-010](../lab-010-master-account) can be left in place until this is functioning correctly before being disabled.
+Using CloudFormation to create the bucket and trail can be done instead of (or even in parallel to) the manual approach using the console in [lab-010](../lab-010-master-account).
 
 ## Prereqs
 * Master account has been [created](../lab-01-master-account)
+* Assumes you have some CloudFormation experience. If not I suggest you do the [Advanced AWS CloudFormation](https://acloud.guru/course/aws-advanced-cloudformation/dashboard) course on [acloud.guru](https://acloud.guru).
 
 ## Completed State
-* S3 bucket for CloudTrail created
-* KMS key for encrypting logs generated
-* IAM Audit group defined
-* IAM user in audit group created
-* Enable CloudTrail
-  * All Regions
-  * KMS encryption
-  * File validation on
+* CloudTrail logging all API activity to an S3 bucket
 
 # CloudTrail
 
-**Principle**: Secure and minimise use of the root account.
-
-**Principle**: Segregate roles and responsibilities.
-
-One of the great strengths of AWS is the fined grained controls that allows you to define exactly what resources someone (or something) can interact with, and their level of interaction. So when it comes to CloudTrail logs, since they capture every AWS API request, the set of roles (and therefore people) who should be able to see these logs is quite small.
-
-This lab assumes that you will want to establish an audit function, a group/role that has readonly access to CloudTrail and other resources.
-
-The challenge with the fine grained access controls is the complexity they create; it is significantly harder to diagnose why someone can or cannot access a resource as policies can be defined at the organisation, IAM and resource level.
-
-## Create Audit Group
-
-* Navigate to *IAM*
-* Create a group called *group-audit*
-* Add the AWS ReadOnly policy to the group
-
-
-## Create Audit User
-
+**Principle**: Log all activity to enable addition of metrics, alerts, events and retrospective analysis.
 
 ## Create S3 bucket
 
-By creating the bucket you get to determine which region the budget is in; the CloudTrail console wizard does not give you this option.
+By creating the bucket you get to determine which region the bucket is in, unlike when using the CloudTrail console wizard which does not give you this option.  Some would choose to run this template in us-east-1 since that is where global services like are likely to be.
 
-* Navigate to **S3**
-* Select **Create Bucket**
-* Name the bucket using your global prefix, in this example I used *cle2wa-s3-trail-master*
-* Select a region
-* Enable *Versioning* 
+This bucket will be used by other accounts so we want a name that makes sense for the organisation, but rather than hard coding the bucketname make it a default for a parameter. That gives the user the opportunity to change it and reuse the template in other accounts.
 
+Creating a bucket in CloudFormation is quite straight forward, remember to:
+* Set the deletion policy to *Retain* so that the bucket remains even if the stack is deleted
+  * This can be annoying when testing the template, since you will have to manually delete the bucket in order to rerun the stack
+* Define the allowed pattern for an s3 bucket name so an illegal name is caught before the stack creation starts
 
+Your script may look something like this:
 
-```json
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "AWSCloudTrailAclCheck20150319",
-            "Effect": "Allow",
-            "Principal": {"Service": "cloudtrail.amazonaws.com"},
-            "Action": "s3:GetBucketAcl",
-            "Resource": "arn:aws:s3:::TRAILBUCKET"
-        },
-        {
-            "Sid": "AWSCloudTrailWrite20150319",
-            "Effect": "Allow",
-            "Principal": {"Service": "cloudtrail.amazonaws.com"},
-            "Action": "s3:PutObject",
-            "Resource": "arn:aws:s3:::TRAILBUCKET/AWSLogs/ACCOUNTID/*",
-            "Condition": {"StringEquals": {"s3:x-amz-acl": "bucket-owner-full-control"}}
-        }
-    ]
-}
+```yaml
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  trailBucketName:
+    Type: String
+    MinLength: 3
+    MaxLength: 64
+    Default: cle2wa-s3-trail-master
+    AllowedPattern: ^[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9]$
+    ConstraintDescription: 3 to 64 upper case, lower case or dashes, must not start or end with a dash
+
+Resources: 
+  s3TrailMasterBucket: 
+    DeletionPolicy: Retain
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Ref trailBucketName
+      # TBC: should we enable versioning for this?
+      VersioningConfiguration:
+        Status: Enabled
 ```
 
-## Create Customer Managed Key (CMK)
+## Define S3 bucket policy
 
+The bucket policy can be taken from the exmaples provided by Amazon in [S3 Bucket policy for CloudTrail](http://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html).
 
-## Configure Access to Key
+Because we intend to use this bucket for cloudtrail logs from other accounts, you can either add new accounts to the *s3::PutObject* resources, or remove ths specific account ID from this resource. I have choosen to do the later. 
 
+```yaml
+  s3PolicyTrailMasterBucket: 
+    Type: "AWS::S3::BucketPolicy"
+    Properties: 
+      Bucket: !Ref s3TrailMasterBucket
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Sid: "AWSCloudTrailAclCheck"
+            Effect: "Allow"
+            Principal: 
+              Service: "cloudtrail.amazonaws.com"
+            Action: "s3:GetBucketAcl"
+            Resource:
+            - !Join ["", ["arn:aws:s3:::", !Ref s3TrailMasterBucket]]
+          - 
+            Sid: "AWSCloudTrailWrite"
+            Effect: "Allow"
+            Principal: 
+              Service: "cloudtrail.amazonaws.com"
+            Action: "s3:PutObject"
+            # For a single account this would normally specify the account in the path
+            # but since this will be for multiple accounts
+            Resource:
+            - !Join ["", ["arn:aws:s3:::", !Ref s3TrailMasterBucket, "/AWSLogs/*"]]
+            Condition: 
+              StringEquals:
+                s3:x-amz-acl: "bucket-owner-full-control"
+```
 
+## Create the CloudTrail
 
-## Enable Cloud Trail
+See [AWS::CloudTrail::Trail](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html).
 
-TBD: Replace this using the resources configured above
+Your trail resource configuration will need to include:
+* Reference to the bucket policy and the actual bucket
+* Because this trail is logging all regions you also have to include global services
+* Output the bucket name
 
-*Note: This may generate costs to you*
+You should end up adding something like [this](scripts/cf-cloudtrail-1.yaml):
 
-I recommend setting up CloudTrail immediately so that you capture everything you do from this point on. This is especially handy if something does not work and you don't understand why.
-* Navigate to **CloudTrail**
-* Create a trail called `trail-master`
-  * See the [Style Guide](../../STYLEGUIDE.md) about establishing a naming convention.
-* **Apply trail to all regions**
-  * Although we disable access to other regions below, they could be re-activated later and it does not cost anything to enable for all regions if there are no API calls in those other regions.
-* Enable all **Read/Write events**
-* For this account we should not require logging for S3 data events, so ignore that section
-* Create a new bucket and specify a unique name
-  * Prefix the bucket name with the global prefix you selected to make it unique
-  * This course will use the same bucket for CloudTrail logs from all accounts, so `cle2wa-trail-bucket`.
-* Select **Advanced** and check that
-  * **Enable log file validation** is on
+```yaml
+  trailMaster: 
+    DependsOn: 
+      - s3PolicyTrailMasterBucket
+    Type: "AWS::CloudTrail::Trail"
+    Properties: 
+      # TBD: How to specify the name of the trail
+      S3BucketName: !Ref s3TrailMasterBucket
+      IncludeGlobalServiceEvents: true
+      IsLogging: true
+      IsMultiRegionTrail: true
+      EnableLogFileValidation: true
+
+Outputs:
+  trailMasterName:
+    Description: CloudTrail Bucket
+    Value: !Ref s3TrailMasterBucket
+```
+
+You should now be ready to run this template.
+* Navigate to **CloudFormation**
+* Select **Create Stack**
+* Use the **Upload a template to S3** and **Choose File**
+* Select your script file
+* Provide a
+  * *Stack Name* (for example *cle2wa-trail-master*),
+  * *Baucket Name* (for example *cle2wa-s3-trail-master*)
+* Press **Next** and **Next**
 * Press **Create**
+
+Once the stack is created successfully, check the S3 bucket, the bucket policy and **CloudTrail** dashboard.
 
 # References
 
+[AWS::CloudTrail::Trail](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html)
+
 [S3 Bucket policy for CloudTrail](http://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html)
 
-[Encrypting CloudTrail with KMS](http://docs.aws.amazon.com/awscloudtrail/latest/userguide/encrypting-cloudtrail-log-files-with-aws-kms.html)
-
-[IAM Policies for KMS](http://docs.aws.amazon.com/kms/latest/developerguide/iam-policies.html)
-
 # Possible Enhancements
-* Enabling versioning and logging on the cloud trail bucket
+* Extract the bucket creation into a separate template so the trail stack can be deleted and created again without affecting the bucket.
+* Enabling versioning and logging on the cloud trail bucket?
+* Define and use a KMS key
+  * [Encrypting CloudTrail with KMS](http://docs.aws.amazon.com/awscloudtrail/latest/userguide/encrypting-cloudtrail-log-files-with-aws-kms.html)
+  * [IAM Policies for KMS](http://docs.aws.amazon.com/kms/latest/developerguide/iam-policies.html)
 * Define tags

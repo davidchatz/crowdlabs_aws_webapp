@@ -1,12 +1,20 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
+Parameters:
+  trailBucketName:
+    Type: String
+    MinLength: 3
+    MaxLength: 64
+    Default: cle2wa-s3-trail-master
+    AllowedPattern: ^[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9]$
+    ConstraintDescription: 3 to 64 upper case, lower case or dashes, must not start or end with a dash
+
 Resources: 
   s3TrailMasterBucket: 
     DeletionPolicy: Retain
     Type: "AWS::S3::Bucket"
     Properties:
-      # Hardcoding the bucket name so this works for any account
-      BucketName: cle2wa-s3-trail-master
+      BucketName: !Ref trailBucketName
       # TBC: should we enable versioning for this?
       VersioningConfiguration:
         Status: Enabled

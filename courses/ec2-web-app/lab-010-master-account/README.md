@@ -56,7 +56,7 @@ The examples will use `cle2wa` but you may need to select something different to
 
 I recommend setting up CloudTrail immediately so that you capture everything you do from this point on. This is especially handy if something does not work and you don't understand why you can at least see the API calls being made.
 
-*Note*: [Lab 015](../lab-015-cloudtrail) may replace this section with a cloudtrail configuration that further restricts access to the cloudtrail logs. 
+*Note*: [Lab 015](../lab-015-cloudtrail) can replace this section with a cloudformation template.
 
 * Navigate to **CloudTrail**
 * Create a trail called `trail-master`
